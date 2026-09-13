@@ -79,11 +79,18 @@ func modelGroup(id string) string {
 
 func buildModelInfo(id string, cfg PluginConfig) pluginapi.ModelInfo {
 	name := id[strings.LastIndex(id, "/")+1:]
+	context, output := limitsFor(id)
 	return pluginapi.ModelInfo{
 		ID: qualifyModelID(id, cfg.ModelPrefix), Object: "model", OwnedBy: providerKey,
 		Type: "chat", Name: id, DisplayName: modelGroup(id) + " · " + name,
 		SupportedGenerationMethods: []string{"chat"},
 		UserDefined:                len(cfg.Models) > 0,
+		// 窗口规格来自 OpenRouter 目录的逐条映射（见 model_limits.go）。
+		// 未收录的模型保持 0，交给客户端用默认值，不塞猜测数字。
+		ContextLength:       context,
+		MaxCompletionTokens: output,
+		InputTokenLimit:     context,
+		OutputTokenLimit:    output,
 	}
 }
 
@@ -124,10 +131,12 @@ func modelInfoSnapshot(force bool) map[string]any {
 	entries := make([]map[string]any, 0, len(snapshot.Models))
 	for _, model := range snapshot.Models {
 		info := buildModelInfo(model.ID, cfg)
+		context, output := limitsFor(model.ID)
 		ids = append(ids, info.ID)
 		entries = append(entries, map[string]any{
 			"id": info.ID, "upstreamId": model.ID, "name": info.DisplayName,
 			"group": modelGroup(model.ID), "owned_by": providerKey, "description": model.Description,
+			"context_length": context, "max_completion_tokens": output,
 		})
 	}
 	return map[string]any{

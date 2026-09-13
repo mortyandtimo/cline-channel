@@ -59,7 +59,7 @@ plugins:
 重启 CPA，日志里出现下面这行就算装好了：
 
 ```
-pluginhost: plugin registered plugin_id=cline-channel version=2.1.1
+pluginhost: plugin registered plugin_id=cline-channel version=2.2.0
 ```
 
 ### 3. 填写 Cline API Key
@@ -129,6 +129,61 @@ Cline 的第三方渠道容量是波动的（`baseten` 会返回 503，`deepseek
 **所以钉单个渠道等于把可用性押注在一个渠道上**。想稳定就多钉几个，或者用 `preferred`。
 
 ---
+
+## 模型窗口信息（上下文 / 最大输出）
+
+CPA 的 `/v1/models` 只返回 `id` / `object` / `owned_by` 三个字段，**不带上下文长度和最大输出**。
+这会让 DSH、Cherry Studio 这类 agent 无法自动换算窗口预算，只能手填，有时直接报
+`model declares no contextWindow — window-relative budgets disabled for this request`。
+
+插件内置了 Cline Pass 全部订阅模型的窗口规格，并按 CPA 原生 `model-definitions` 的形状
+通过 `/capabilities` 暴露：
+
+```
+GET /v0/resource/plugins/cline-channel/capabilities
+
+{"channel":"cline","models":[
+  {"id":"cline-pass/deepseek-v4.1-flash","context_length":1048576,"max_completion_tokens":384000},
+  {"id":"cline-pass/deepseek-v4-pro",   "context_length":1048576,"max_completion_tokens":393216},
+  ...
+]}
+```
+
+数值来自 [OpenRouter 公共目录](https://openrouter.ai/api/v1/models) 的 `context_length`
+与 `top_provider.max_completion_tokens`。Cline 的模型 ID 用的就是 OpenRouter 的
+`provider/model-name` 命名约定（官方 Models 文档明确说明），实测响应里的 `canonicalSlug`
+与目录条目一一对应，可以逐条核对。OpenRouter 尚未收录的新模型（例如 `qwen3.8-max`）
+不提供数值 —— 宁可让客户端拿不到，也不塞一个猜测值误导上下文预算。
+
+**要让客户端真正看到这些字段，需要一个中间层把它们注入 `/v1/models`**，因为 CPA 本身
+不透传（对内置 provider 也不透传，`/v1/models` 一律只有三个字段）。参考做法见 `cpa-stack`
+里的 `compat-proxy`：它先试 CPA 原生的 `model-definitions`，遇到插件 provider 返回的
+`{"error":"unknown channel"}` 时，改从上面的端点取。
+
+### 关于思考强度
+
+目前**选不了**。Cline API 的请求参数只有 `model` / `messages` / `stream` / `tools` /
+`temperature`（官方 Chat Completions 文档的参数表），以下写法实测**一律被 500 拒绝**：
+
+```
+reasoning_effort=low|high
+reasoning.{effort, max_tokens}
+thinking.budget_tokens
+providerOptions.openrouter.reasoning / providerOptions.gateway.reasoning
+```
+
+对照：钉扎用的 `providerOptions.gateway.{only,order,sort}` 是生效的，说明 Cline 对
+`providerOptions` 走白名单校验，而 `reasoning` 不在名单内。模型目录（445 个）也只返回
+`id/object/created/owned_by`，没有任何能力字段，`clinePass` 的 15 个模型也没有
+`-thinking` / `-high` 这类变体。
+
+所以在 Cline 这条链路上，能影响的只有：**选哪个模型**（`flash` 系列与 `pro`/`max`
+系列的推理量差别明显）、以及 **`max_tokens`**（它约束 reasoning + 正文的**总预算**，
+调大是给思考留空间，不是提高思考强度）。
+
+> CPA 侧的契约其实是齐的（`ThinkingSupport` / `ThinkingConfig{Mode,Budget,Level}` /
+> `ThinkingApplier`），插件也预留了接入位，但上游不认这些参数，所以没有实现。
+> 真要控制推理强度，只能绕开 Cline Pass，直连支持该能力的 provider。
 
 ## 重要：别让一次抖动拉黑整个 provider
 

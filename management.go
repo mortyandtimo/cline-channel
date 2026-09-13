@@ -24,6 +24,7 @@ var panelActions = []panelAction{
 	{"observed", false, handleObserved},
 	{"key", false, handleKeyInfo},
 	{"key-save", true, handleKeySave},
+	{"capabilities", false, handleCapabilities},
 	{"probe", true, handleProbe},
 	{"test", true, handleTest},
 	{"pin", true, handlePin},
