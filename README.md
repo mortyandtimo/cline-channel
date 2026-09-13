@@ -59,7 +59,7 @@ plugins:
 重启 CPA，日志里出现下面这行就算装好了：
 
 ```
-pluginhost: plugin registered plugin_id=cline-channel version=2.2.0
+pluginhost: plugin registered plugin_id=cline-channel version=2.2.1
 ```
 
 ### 3. 填写 Cline API Key

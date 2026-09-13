@@ -2,7 +2,7 @@ package main
 
 import "cline-channel/sdk/pluginapi"
 
-const pluginVersion = "2.2.0"
+const pluginVersion = "2.2.1"
 
 type registration struct {
 	SchemaVersion uint32                 `json:"schema_version"`

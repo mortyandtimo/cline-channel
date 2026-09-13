@@ -38,6 +38,10 @@ var modelLimits = map[string]struct {
 	"cline-pass/qwen3.7-plus": {Context: 1000000, Output: 131072},
 	// qwen/qwen3.7-max
 	"cline-pass/qwen3.7-max": {Context: 1000000, Output: 131072},
+	// qwen/qwen3.8-max-0902 —— OpenRouter 收录的是带日期后缀的条目，
+	// Cline 侧名称为 qwen3.8-max。同系列 qwen3.8-flash / 27b / 2.4t-a95b 的
+	// context 与 maxOut 与之完全一致，且与上一代 qwen3.7-max 相同，故采用该组数值。
+	"cline-pass/qwen3.8-max": {Context: 1000000, Output: 131072},
 	// minimax/minimax-m3
 	"cline-pass/minimax-m3": {Context: 1048576, Output: 512000},
 	// xiaomi/mimo-v2.5
