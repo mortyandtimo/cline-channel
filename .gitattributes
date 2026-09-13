@@ -1,0 +1,10 @@
+# 默认按内容自动识别，文本统一用 LF 存库。
+# install.sh 一旦被转成 CRLF，在 Linux 上会以
+# "/usr/bin/env bash^M: bad interpreter" 报错，所以必须锁死。
+* text=auto eol=lf
+
+# PowerShell 脚本保持 CRLF，符合 Windows 习惯
+*.ps1 text eol=crlf
+
+# 预编译的 Linux 动态库是二进制，禁止任何转换
+*.so binary

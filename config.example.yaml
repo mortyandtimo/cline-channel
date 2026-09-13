@@ -1,0 +1,49 @@
+# CPA 插件配置示例：把下面这段合并进 CPA 的 config.yaml。
+#
+# 位置：config.yaml → plugins → configs → cline-channel
+#
+# 最简可用配置只需要 enabled + 一个 Cline API Key 来源：
+#   - 留空 api_key，改用 CPA 的 auths/cline.json 保存凭据（推荐，凭据与配置分离）
+#   - 或直接在这里填 api_key
+# 两种方式都能用，插件配置非空时优先。
+
+plugins:
+  enabled: true
+  dir: "plugins"
+  configs:
+    cline-channel:
+      enabled: true
+      priority: 10
+
+      # Cline 网关地址，一般不用改
+      base_url: "https://api.cline.bot/api/v1"
+
+      # Cline API Key（sk_ 开头）。留空则从 <auth-dir>/cline.json 读取。
+      # 也可以在插件面板的「查看 / 修改 Key」里填，面板会把值写进 auth 文件。
+      api_key: ""
+
+      # strict    只走钉住的渠道，失败也不换（语义最硬，单渠道时无回退余地）
+      # preferred 优先钉住的渠道，异常时交回 Cline 自行回退
+      pin_mode: "preferred"
+
+      # 钉扎指令的注入写法。auto = 两种都写，最省心。
+      pin_style: "auto"
+
+      # collect 收完整条上游流再交回（默认，兼容当前 CPA 宿主）
+      # emit    用 host.stream.emit 边收边推；该回调会与响应头交付互等而死锁，别开
+      stream_mode: "collect"
+
+      timeout_seconds: 300
+      debug: false
+
+# ─────────────────────────────────────────────────────────────────────────
+# 强烈建议同时加上下面两项（顶层，与 plugins 同级）。
+#
+# Cline 的渠道都是第三方自部署推理（baseten / novita / fireworks / deepinfra ...），
+# 偶发返回 500 "empty response content" 属于常态。若让这类抖动把凭据标记为失败并冷却，
+# 整个 cline provider 会变成 unavailable，连带所有 cline-pass 模型一起 503。
+# 关掉冷却后，失败只是一次失败，下一次请求照常重试。
+# ─────────────────────────────────────────────────────────────────────────
+#
+# disable-cooling: true
+# transient-error-cooldown-seconds: -1

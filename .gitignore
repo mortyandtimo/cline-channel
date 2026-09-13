@@ -1,0 +1,21 @@
+# c-shared 构建产生的头文件与调试产物
+*.dll
+*.h
+
+# 根目录的中间构建产物；dist/ 下的 .so 是发布产物，需要提交
+/cline-channel.so
+/cline-channel-linux.so
+/cline-channel.previous.so
+
+# 本地凭据与运行状态，绝不入库
+auths/
+.secrets/
+*.cds
+cline-channel-pins.json
+cline-channel-models-cache.json
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

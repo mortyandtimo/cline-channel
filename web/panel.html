@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cline-panel-token" content="{{.Token}}">
+  <title>Cline Pass Switcher · CPA 插件</title>
+  <link rel="stylesheet" href="/v0/resource/plugins/cline-channel/panel.css">
+  <script type="module" src="/v0/resource/plugins/cline-channel/panel.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">C</span><span>CLINE<span class="brand-divider">/</span>PASS SWITCHER</span></div>
+      <span class="version">CPA 插件 · v{{.Version}}</span>
+    </header>
+    <main>
+      <div class="heading"><div><div class="eyebrow">YOUR MODELS. YOUR CHANNELS.</div><h1>Cline 订阅模型</h1><p class="intro">同步官方订阅列表，选择每个模型的上游渠道。</p></div><div class="status-pill" id="connection">正在连接</div></div>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section class="stats" aria-label="服务概况">
+        <div class="stat"><span>订阅模型</span><strong id="model-count">—</strong><small>Cline Pass</small></div>
+        <div class="stat"><span>模型来源</span><strong class="stat-text" id="model-source">正在读取</strong><small id="model-updated">—</small></div>
+        <div class="stat"><span>Cline 账号</span><strong class="stat-text" id="account-status">正在检查</strong><small id="account-mode">—</small><small class="key-line" id="account-key">—</small><button id="manage-key" class="small">查看 / 修改 Key</button></div>
+        <div class="stat"><span>已设置渠道</span><strong id="pin-count">—</strong><small>保存后立即生效</small></div>
+      </section>
+      <section class="model-section" aria-label="Cline 模型列表">
+        <div class="toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="model-search" type="search" aria-label="搜索 Cline 模型" placeholder="搜索模型名称"></label><button id="refresh-models">刷新官方列表</button></div>
+        <div id="model-groups" aria-live="polite"><div class="empty">正在读取 Cline 模型…</div></div>
+        <p class="footnote">模型名称保留 <code>cline-pass/</code> 前缀，分组统一标明 Cline。探测和测试会向 Cline 发送少量请求。</p>
+      </section>
+      <section class="history-section">
+        <div class="section-title"><h2>最近请求</h2><span>实际命中 · 耗时 · 尝试次数</span></div>
+        <div class="table-wrap"><table class="history"><thead><tr><th>时间</th><th>Cline 模型</th><th>类型</th><th>所选 → 实际渠道</th><th>状态</th><th>耗时 / 尝试</th></tr></thead><tbody id="history-rows"></tbody></table></div>
+      </section>
+      <footer><span>Cline Pass Switcher</span><span>模型列表来自 Cline 官方 clinePass 接口</span></footer>
+    </main>
+  </div>
+  <dialog id="channel-dialog" aria-labelledby="editor-title">
+    <div class="dialog-heading"><div><span class="eyebrow">CLINE PASS</span><h2 id="editor-title">渠道设置</h2><code id="editor-model"></code></div><button id="close-editor" aria-label="关闭渠道设置">✕</button></div>
+    <div class="dialog-body">
+      <div class="section-title"><h3>可选渠道</h3><div class="actions"><button id="probe-editor">探测渠道</button><button id="validate-channels">逐个校验</button></div></div>
+      <p id="probe-status" class="muted">探测后选择渠道；可以勾选多个，按下方顺序尝试。</p>
+      <div id="channel-options" class="channel-options"></div>
+      <label class="field">按顺序尝试的渠道<input id="selected-channels" placeholder="留空由 Cline 自动选择；多个渠道用逗号分隔" autocomplete="off" spellcheck="false"><small>最左侧优先。可以直接编辑顺序。</small></label>
+      <div class="field-grid"><label class="field">切换方式<select id="pin-mode"><option value="strict">严格钉住，按所选顺序尝试</option><option value="preferred">优先所选渠道，允许回退</option></select></label><label class="field">排序偏好<select id="pin-sort"><option value="">Cline 默认</option><option value="cost">成本优先</option><option value="ttft">首字延迟优先</option><option value="tps">生成速度优先</option></select></label></div>
+      <label class="field">排除渠道<input id="excluded-channels" placeholder="多个渠道用逗号分隔" autocomplete="off" spellcheck="false"><small>排除优先于选择。自动选择或允许回退时，需要先探测可选渠道。</small></label>
+      <div id="validation-results" class="validation-results" aria-live="polite"></div>
+    </div>
+    <div class="dialog-footer"><span id="save-status" class="muted"></span><button id="cancel-editor">取消</button><button id="save-channels" class="primary">保存渠道设置</button></div>
+  </dialog>
+  <dialog id="key-dialog" aria-labelledby="key-title">
+    <div class="dialog-heading"><div><span class="eyebrow">CLINE PASS</span><h2 id="key-title">Cline API Key</h2><code id="key-source"></code></div><button id="close-key" aria-label="关闭 Key 设置">✕</button></div>
+    <div class="dialog-body">
+      <p id="key-status" class="muted">正在读取当前 Key…</p>
+      <label class="field">当前已接入<small id="key-hint">出于安全考虑只显示首尾字符，用于分辨是哪一把 Key。</small><input id="key-current" readonly></label>
+      <label class="field">替换为新的 Key<input id="key-input" placeholder="粘贴完整的 sk_... Key" autocomplete="off" spellcheck="false"><small>保存后立即写入 CPA 凭据文件并生效，不需要重启 CPA。留空则不改动。</small></label>
+    </div>
+    <div class="dialog-footer"><span id="key-save-status" class="muted"></span><button id="cancel-key">取消</button><button id="save-key" class="primary">保存 Key</button></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
