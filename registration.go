@@ -2,7 +2,7 @@ package main
 
 import "cline-channel/sdk/pluginapi"
 
-const pluginVersion = "2.2.1"
+const pluginVersion = "2.3.0"
 
 type registration struct {
 	SchemaVersion uint32                 `json:"schema_version"`
@@ -92,8 +92,8 @@ func pluginMetadata() pluginapi.Metadata {
 			{
 				Name:        "stream_mode",
 				Type:        pluginapi.ConfigFieldTypeEnum,
-				EnumValues:  []string{StreamModeCollect, StreamModeEmit},
-				Description: "collect 收完整条上游流再交回（默认，兼容当前 CPA 宿主）；emit 用 host.stream.emit 边收边推，该回调会与响应头交付互等而死锁。",
+				EnumValues:  []string{StreamModeEmit, StreamModeCollect},
+				Description: "emit 边收边推、首字节即上游首字节（默认）；collect 收完整条流再交回，作为退路。",
 			},
 			{
 				Name:        "timeout_seconds",

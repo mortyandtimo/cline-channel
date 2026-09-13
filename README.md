@@ -59,7 +59,7 @@ plugins:
 重启 CPA，日志里出现下面这行就算装好了：
 
 ```
-pluginhost: plugin registered plugin_id=cline-channel version=2.2.1
+pluginhost: plugin registered plugin_id=cline-channel version=2.3.0
 ```
 
 ### 3. 填写 Cline API Key
@@ -249,25 +249,36 @@ http://<CPA 地址>/v0/resource/plugins/cline-channel/panel
 | `pin_rules` | 空 | 静态钉扎规则（面板选择优先） |
 | `pin_state_file` | 空 | 面板选择落盘路径，默认 `<auth-dir>/cline-channel-pins.json` |
 | `models` | 空 | 显式模型白名单；留空从 Cline 官方接口同步 |
-| `stream_mode` | `collect` | 流式转发实现；见下 |
+| `stream_mode` | `emit` | 流式转发实现：`emit` 真流式，`collect` 收完再交回；见下 |
 | `timeout_seconds` | `300` | 单次上游请求超时 |
 | `debug` | `false` | 路由与钉扎详情日志 |
 
-### 为什么 `stream_mode` 默认是 `collect`
+### 流式转发：默认 `emit`（真流式）
 
-CPA 宿主提供的 `host.stream.emit` 是**同步**回调，而 CPA 要等插件返回
-`execute_stream` 之后才把响应头交给客户端 —— 两者互等，形成死锁：
+`host.stream.emit` 是**同步**宿主回调，它要往下游连接写数据，而 CPA 要等插件返回
+`execute_stream` 之后才把响应头交给客户端 —— 顺序同步执行就是死锁：
 
 ```
-插件等 host.stream.emit 返回 → 它等客户端连接可写 → 客户端在等响应头 → CPA 在等插件返回
+插件等 host.stream.emit 返回 → 它等下游连接可写 → 客户端在等响应头 → CPA 在等插件返回
 ```
 
-实测表现是**流式请求永久挂起**（上游其实 2 秒内就正常返回了 SSE），
+早先的实现因此表现为**流式请求永久挂起**（上游其实 2 秒内就正常返回了 SSE），
 Cherry Studio、DSH 这类默认走流式的客户端会直接卡死。
 
-所以默认走 `collect`：把上游 SSE 收完再一次性交回，客户端拿到的仍是标准流式响应
-（标准事件序列 + `data: [DONE]`），只是首字延迟等于完整生成时间。
-宿主修好这个回调后，把 `stream_mode` 改成 `emit` 即可切回真流式。
+解法不是放弃流式，而是**把推送交给后台 goroutine**：先把响应头交回宿主，
+再由后台任务边收上游边推送，`context` 与响应体的生命周期一并交给那个 goroutine
+（否则本方法返回时外层 defer 会取消请求、关闭连接，推送立刻断掉）。
+这样死锁的两个条件不再同时成立，首字节就等于上游首字节。
+
+实测（同一提示词、约 200 字回答，走 CPA 的 `/v1/chat/completions`）：
+
+| 模式 | 首字节 | 总时长 |
+|---|---|---|
+| `emit`（默认） | **0.93 s** | 2.54 s |
+| `collect` | 3.00 s | 3.01 s |
+
+`collect` 作为退路保留：显式写 `stream_mode: "collect"` 就退回"收完整条流再一次性交回"，
+客户端拿到的仍是标准流式响应（标准事件序列 + `data: [DONE]`），只是首字延迟等于完整生成时间。
 
 ---
 

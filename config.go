@@ -82,9 +82,11 @@ type PluginConfig struct {
 	Debug bool `yaml:"debug"`
 
 	// StreamMode 决定流式转发怎么把上游 SSE 交回宿主：
-	//   collect  收完整条流再一次性交回（默认，当前 CPA 宿主下唯一可用）
-	//   emit     用 host.stream.emit 边收边推；该回调会与响应头交付互等而死锁，
-	//            仅在宿主修好之后才有意义
+	//   emit     用 host.stream.emit 边收边推，首字节即上游首字节（默认）
+	//   collect  收完整条流再一次性交回；首字节等于完整生成时间，作为退路保留
+	//
+	// emit 必须异步执行：同步调用 host.stream.emit 会与响应头交付互等而死锁，
+	// 详见 executor_stream.go 的说明。
 	StreamMode string `yaml:"stream_mode"`
 }
 
@@ -111,7 +113,7 @@ func defaultConfig() PluginConfig {
 		PinMode:        PinModePreferred,
 		PinStyle:       PinStyleAuto,
 		TimeoutSeconds: defaultTimeoutSeconds,
-		StreamMode:     StreamModeCollect,
+		StreamMode:     StreamModeEmit,
 	}
 }
 
@@ -163,10 +165,13 @@ func (c *PluginConfig) normalize() {
 		c.TimeoutSeconds = defaultTimeoutSeconds
 	}
 	switch strings.ToLower(strings.TrimSpace(c.StreamMode)) {
+	case StreamModeCollect:
+		c.StreamMode = StreamModeCollect
 	case StreamModeEmit:
 		c.StreamMode = StreamModeEmit
 	default:
-		c.StreamMode = StreamModeCollect
+		// 未配置时保持默认的推送式转发；显式写 collect 才退回收集模式。
+		c.StreamMode = StreamModeEmit
 	}
 	if c.AccountMode != "roundrobin" {
 		c.AccountMode = "single"

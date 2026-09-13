@@ -29,9 +29,9 @@ plugins:
       # 钉扎指令的注入写法。auto = 两种都写，最省心。
       pin_style: "auto"
 
-      # collect 收完整条上游流再交回（默认，兼容当前 CPA 宿主）
-      # emit    用 host.stream.emit 边收边推；该回调会与响应头交付互等而死锁，别开
-      stream_mode: "collect"
+      # emit    边收边推，首字节即上游首字节（默认，真流式）
+      # collect 收完整条流再一次性交回，首字节等于完整生成时间（退路）
+      stream_mode: "emit"
 
       timeout_seconds: 300
       debug: false
